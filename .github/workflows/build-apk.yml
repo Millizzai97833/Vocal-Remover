@@ -1,3 +1,4 @@
+
 name: Build Vocal Remover APK
 
 on:
@@ -35,6 +36,11 @@ jobs:
           channel: stable
           cache: true
 
+      - name: Set up Android SDK 36
+        uses: android-actions/setup-android@v4
+        with:
+          packages: "platform-tools platforms;android-36 build-tools;36.0.0"
+
       - name: Check Flutter
         run: flutter --version
 
@@ -43,6 +49,54 @@ jobs:
           if [ ! -d android ]; then
             flutter create --platforms=android --org com.shahabmillizai .
           fi
+
+      - name: Set Android compile SDK to 36
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          candidates = [
+              Path("android/app/build.gradle.kts"),
+              Path("android/app/build.gradle"),
+          ]
+
+          gradle_file = next(
+              (p for p in candidates if p.exists()), None
+          )
+
+          if gradle_file is None:
+              raise SystemExit("Android Gradle file not found.")
+
+          source = gradle_file.read_text()
+          updated = source
+
+          updated = re.sub(
+              r"compileSdk\s*=\s*flutter\.compileSdkVersion",
+              "compileSdk = 36",
+              updated
+          )
+
+          updated = re.sub(
+              r"compileSdkVersion\s+flutter\.compileSdkVersion",
+              "compileSdkVersion 36",
+              updated
+          )
+
+          updated = re.sub(
+              r"compileSdk\s+flutter\.compileSdkVersion",
+              "compileSdk 36",
+              updated
+          )
+
+          if updated == source and not re.search(
+              r"compileSdk\s*(?:=\s*)?36\b", source
+          ):
+              raise SystemExit("Could not update compileSdk.")
+
+          gradle_file.write_text(updated)
+          print(f"Using compileSdk 36 in {gradle_file}")
+          PY
 
       - name: Get dependencies
         run: flutter pub get
